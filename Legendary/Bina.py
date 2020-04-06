@@ -45,7 +45,7 @@ class Bina:
             'voting_train': None,
             'voting_test': None,
             'prediction_train': None,
-            'prediction_test': None,
+            'prediction_test': None
         }
         self._normalization_params = None
         self.normalization_method = 'Z_score'

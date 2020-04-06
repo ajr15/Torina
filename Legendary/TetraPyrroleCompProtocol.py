@@ -6,31 +6,7 @@ import pandas as pd
 from ..Base import MolUtils
 from abc import ABC, abstractclassmethod
 from rdkit import Chem
-
-class PropCalc:
-
-    def __init__(self):
-        pass
-    
-    @abstractclassmethod
-    def GlobalPreCalc(self) -> dict:
-        '''Function for calculating a global property dict to be used in computation.'''
-        pass
-
-    @abstractclassmethod
-    def PreRunExternalSoftware(self, mol, mol_name, GlobalDict):
-        '''Function to run external softwares (such as gaussian, MOPAC, etc.) before the calculation.'''
-        pass
-
-    @abstractclassmethod
-    def RateDict(self, mol, mol_name, GlobalDict) -> dict:
-        '''Function to define the rate constants for the calculation. The function returns a dictionary with the rate constants names (keys), and a function, args pair (values)'''
-        raise NotImplementedError("RateDict is not implemented, please implement CompDict and try again.")
-
-    @abstractclassmethod
-    def PropDict(self, rate_dict) -> dict:
-        '''Function of the rate constants in rate dict to define different properties for the calculation. Function returns a dict with property names (keys) and functions to calculate them (values)'''
-        raise NotImplementedError("PropDict is not implemented. Impossible to calculate properties.")
+from Base import PropCalc
 
 class TetraPyrrolePropCalc (PropCalc):
     def __init__(self, path, check_for_previous_calc = True, geo_opt = False, mopac_calc_method = "PM7"):
