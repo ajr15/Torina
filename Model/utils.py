@@ -1,4 +1,6 @@
 import tensorflow as tf
+from copy import copy
+from matplotlib import pyplot as plt
 
 class KerasArchitectures:
     '''Class for auto-generation of architectures for ML models'''
@@ -123,3 +125,71 @@ class KerasArchitectures:
         
         def __copy__(self):
             return KerasArchitectures.AutoEncoders(tf.keras.models.clone_model(self.encoder), tf.keras.models.clone_model(self.decoder), copy(self.variational))
+
+
+def _plot_fit(ytrue, ypred, show=True, **plot_kwargs):
+    plt.figure()
+    plt.xlabel("Predicted")
+    plt.ylabel("True")
+    plt.scatter(ypred, ytrue, **plot_kwargs)
+    plt.plot(ypred, ypred, 'r-')
+    if show:
+        plt.show()
+
+def variational_sampler(args):
+    z_mean, z_log_sigma = args
+    epsilon = tf.keras.backend.random_normal(shape = (latent_dim, ), stddev = 1)
+    return z_mean + tf.keras.backend.exp(z_log_sigma) * epsilon
+
+# ****** costodi utils ******
+
+def flatten(l):
+    seed = copy(l)
+    while True:
+        new = []
+        for s in seed:
+            if type(s) is list:
+                for x in s:
+                    new.append(x)
+            else:
+                new.append(s)
+        seed = copy(new)
+        if all([not type(s) is list for s in seed]):
+            break
+    return seed
+
+def _gen_idx_dict_for_custodi(inputs, degree):
+    char_sets = [set() for _ in range(degree)]
+    for vec in inputs:
+        vec = flatten(vec)
+        for idx in range(len(vec)):
+            for i, s in enumerate(char_sets):
+                try:
+                    # a = ''.join(vec[idx:(idx + i + 1)])
+                    string = ''.join(vec)
+                    a = string[idx:(idx + i + 1)]
+                    if len(a) == i + 1:
+                        s.add(a)
+                except IndexError:
+                    pass
+    idx_dict = {}
+    for i, s in enumerate(char_sets):
+        for j, char in enumerate(list(s)):
+            if i == 0:
+                idx_dict[char] = j
+            else:
+                idx_dict[char] = j + len(char_sets[i - 1])
+    return idx_dict
+
+def _custodi_encode_vec(vec, degree, tokenization_dict):
+    tokenized = []
+    v = flatten(vec)
+    for idx in range(len(v)):
+        t = 0
+        for i in range(degree):
+            try:
+                t += tokenization_dict[''.join(v[idx:(idx + i + 1)])]
+            except KeyError:
+                pass
+        tokenized.append(t)
+    return tokenized

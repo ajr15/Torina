@@ -1,11 +1,11 @@
 import pandas as pd
-from multiprocessing import Pool
+from pathos.multiprocessing import Pool
 import os
 import numpy as np
 from abc import ABC, abstractclassmethod
 from copy import copy
-import sys; sys.path.append('../')
-import CompProtocol
+from .. import CompProtocol
+from .utils import *
 
 class Specie:
 
@@ -27,6 +27,8 @@ class Data:
     labels = None
     vectorized_inputs = None
     vectorized_labels = None
+    _input_norm_params = None
+    _label_norm_params = None
 
     @property
     def parent_specie(self):
@@ -70,9 +72,9 @@ class Data:
             raise ValueError("Unknown method. Recognized methods are only %s" % (normalization_methods.keys()))
         norm_func = normalization_methods[method]
         if normalize == 'inputs' or normalize == 'all':
-            self.vectorized_inputs = norm_func(self.vectorized_inputs, axis, batch_size)
+            self.vectorized_inputs, self._input_norm_params = norm_func(self.vectorized_inputs, axis, batch_size)
         if normalize == 'labels' or normalize == 'all':
-            self.vectorized_labels = norm_func(self.vectorized_labels, axis, batch_size)
+            self.vectorized_labels, self._label_norm_params = norm_func(self.vectorized_labels, axis, batch_size)
 
     def load_from_dataframe(self, df, input_columns=None, label_columns=None, reps_columns=None):
         # TODO: implement this methods, to load data from dataframe to Data instance
@@ -83,17 +85,17 @@ class Data:
         pass
 
     def _padd_attr(self, attr, pad_char, end_char):
-        setattr(self, attr, padd_vecs(getattr(self, attr), end_char, pad_char))
+        return padd_vecs(getattr(self, attr), end_char, pad_char)
 
     def pad_data(self, pad_char=0, end_char=None, pad='all'):
         if pad == 'all' or pad == 'inputs':
-            self._padd_attr('inputs', pad_char, end_char)
+            return self._padd_attr('inputs', pad_char, end_char)
         if pad == 'all' or pad == 'labels':
-            self._padd_attr('labels', pad_char, end_char)
+            return self._padd_attr('labels', pad_char, end_char)
         if pad == 'all_vecs' or pad == 'vectorized_inputs':
-            self._padd_attr('vectorized_inputs', pad_char, end_char)
+            return self._padd_attr('vectorized_inputs', pad_char, end_char)
         if pad == 'all_vecs' or pad == 'vectorized_labels':
-            self._padd_attr('vectorized_labels', pad_char, end_char)
+            return self._padd_attr('vectorized_labels', pad_char, end_char)
 
 def model_data_to_dataframe(inputs, labels=None, input_names: list=None, label_names: list=None):
     # checks validity of input
@@ -147,67 +149,23 @@ def generate_data_using_comp_protocol(data, comp_protocol, input_idxs=None, inpu
     if not isinstance(data, Data):
         raise ValueError("data must be an instance of a Data object")
 
-    species = convert_inputs(data, inputs, input_idxs, verbose, os.cpu_count())
+    species = convert_inputs(data, inputs, input_idxs, verbose, nprocs)
     aux_df, res_df = CompProtocol.Base.run_protocol(comp_protocol, species, verbose, timeout, nprocs)
     labels = [vec[:-1] for vec in res_df.to_numpy()]
     new_data = copy(data)
     new_data.inputs = inputs if not inputs == None else [data.inputs[i] for i in input_idxs]
+    if not new_data.vectorized_inputs is None:
+        new_data.vectorized_inputs = None if input_idxs == None else [data.vectorized_inputs[i] for i in input_idxs]
     new_data.labels = labels
     return new_data
 
-def unit_normalization(vecs: np.array, axis=None, batch_size=128):
-    min_v = np.min(vecs, axis=axis)
-    max_v = np.max(vecs, axis=axis)
-    return costume_linear_transform(vecs, 1 / max_v, - min_v / max_v, batch_size)
-
-def zscore_normalization(vecs, axis=None, batch_size=128):
-    mean = np.mean(vecs, axis=axis)
-    std = np.std(vecs, axis=axis)
-    return costume_linear_transform(vecs, 1 / std, - mean / std, batch_size)
-
-def costume_linear_transform(vecs, a, b, batch_size=128):
-    '''function to apply a linear transformation in batches'''
-    vecs = np.array(vecs, dtype=np.float32)
-    batch_num = int(np.floor(len(vecs) / batch_size))
-    # transforming vecs in batches
-    for batch in range(batch_num):
-        vecs[(batch * batch_size):((batch + 1) * batch_size)] = a * vecs[(batch * batch_size):((batch + 1) * batch_size)] + b
-    # transforming last batch
-    vecs[(batch_num * batch_size):] = a * vecs[(batch_num * batch_size):] + b
-    return vecs
-
 normalization_methods = {
     'unit_scale': unit_normalization,
-    'z_score': zscore_normalization
+    'z_score': zscore_normalization,
+    'positive_z_score': positive_zscore_normalization
 }
 
-def padd_vecs(vecs, end_char, pad_char, max_l=None):
-    if max_l == None:
-        max_l = max([len(v) for v in vecs])
-    for i in range(len(vecs)):
-        vecs[i] = padd_vec(vecs[i], end_char, pad_char, max_l)
-    return vecs
-
-def padd_vec(vec, end_char, pad_char, l):
-    if not end_char is None:
-        vec.append(end_char)
-    while True:
-        if len(vec) == l + 1:
-            break
-        vec.append(pad_char)
-    return vec
-
-def flatten(l):
-    seed = copy(l)
-    while True:
-        new = []
-        for s in seed:
-            if type(s) is list:
-                for x in s:
-                    new.append(x)
-            else:
-                new.append(s)
-        seed = copy(new)
-        if all([not type(s) is list for s in seed]):
-            break
-    return seed
+inverse_normalization_methods = {
+    'unite_scale': inverse_unit_normalization,
+    'z_score': inverse_zscore_normalization
+}

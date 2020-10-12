@@ -1,7 +1,6 @@
 from abc import abstractclassmethod, ABC
 from copy import copy
-import sys; sys.path.append('../')
-from Data.Base import Data
+from ..Data.Base import Data
 import progressbar
 
 

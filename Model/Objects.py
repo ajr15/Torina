@@ -1,20 +1,16 @@
 import os
 import tensorflow as tf
 from tensorflow import python
-import warnings
-warnings.simplefilter(action = 'ignore', category=FutureWarning)
-python.util.deprecation._PRINT_DEPRECATION_WARNINGS = False
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+import warnings; warnings.simplefilter(action = 'ignore', category=FutureWarning)
 import numpy as np
 from matplotlib import pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn import cluster
-from .Base import Model
+from sklearn.kernel_ridge import KernelRidge as sk_kernel_ridge
+from sklearn.linear_model import Lasso as LinearModel
 
-def variational_sampler(args):
-    z_mean, z_log_sigma = args
-    epsilon = tf.keras.backend.random_normal(shape = (latent_dim, ), stddev = 1)
-    return z_mean + tf.keras.backend.exp(z_log_sigma) * epsilon
+from .Base import Model
+from . import utils
 
 class KerasNN (Model):
     '''Basic wrapper around keras.Model'''
@@ -48,12 +44,9 @@ class KerasNN (Model):
     def predict(self, x, **kwargs):
         return self.model.predict(x, **kwargs)
 
-    def plot_fit(self, x, y, show=True, **plot_kwargs):
+    def plot_fit(self, x, y, show=True, add_line=True, **plot_kwargs):
         ypred = self.predict(x)
-        plt.figure()
-        plt.scatter(ypred, y, **plot_kwargs)
-        if show:
-            plt.show()
+        utils._plot_fit(y, ypred, show, **plot_kwargs)
 
 def vae_loss(x, output, x_decoded, x_loss_func):
     x_loss = x_loss_func(x, x_decoded)
@@ -107,6 +100,108 @@ class KerasAE (Model):
 
     def gen_labels(self, data):
         return data.vectorized_inputs
+
+class KernalRidge (Model):
+
+    def __init__(self, *args, **kwargs):
+        '''Kernal Ridge Regressor as implemented in scikit-learn. Arguments
+        are same as sklearn.kernal_ridge.KernalRidge parameters.'''
+        self.model = sk_kernel_ridge(*args, **kwargs)
+    
+    def train(self, x, y):
+        self.model = self.model.fit(x, y)
+    
+    def test(self, x, y):
+        '''returns R^2 of the fit'''
+        return self.model.score(x, y)
+    
+    def predict(self, x):
+        return self.model.predict(x)
+
+    def plot_fit(self, x, y, show=True, **plot_kwargs):
+        ypred = self.predict(x)
+        utils._plot_fit(y, ypred, show, **plot_kwargs)
+
+class CuSToDi:
+
+    def __init__(self, degree=2, alpha=0.05, max_iter=10000):
+        self.degree = degree
+        self.alpha = alpha
+        self.max_iter = max_iter
+        self.dictionary = {}
+        self.intercept = 0
+
+    def get_optimal_train_idxs(inputs):
+        char_set = set()
+        idxs = [0]
+        for i, vec in enumerate(inputs):
+            vec = flatten(vec)
+            for idx in range(len(vec)):
+                try:
+                    c = ''.join(vec[idx:(idx + i + 1)])
+                except IndexError:
+                    pass
+                finally:
+                    if not c in char_set:
+                        char_set.add(c)
+                        if not idxs[-1] == idx:
+                            idxs.append(idx)
+        return idxs
+        
+
+    def train(self, inputs, labels):
+        idx_dict = utils._gen_idx_dict_for_custodi(inputs, self.degree)
+        X = []
+        for vec in inputs:
+            x = np.zeros(len(idx_dict))
+            vec = utils.flatten(vec)
+            for idx in range(len(vec)):
+                for i in range(self.degree):
+                    try:
+                        x[idx_dict[''.join(vec[idx:(idx + i + 1)])]] += 1
+                    except IndexError:
+                        pass
+            X.append(x)
+        # TODO: remove sklearn dependency. switch with standard library.
+        reg = LinearModel(fit_intercept=True, alpha=self.alpha, max_iter=self.max_iter)
+        reg.fit(X, labels)
+        d = {}
+        for key, c in zip(idx_dict.keys(), reg.coef_):
+            d[key] = c
+        self.dictionary = d
+        self.intercept = reg.intercept_
+        return d
+
+    def encode(self, inputs):
+        tokenized = []
+        for v in inputs:
+            tokenized.append(utils._custodi_encode_vec(v, self.degree, self.dictionary))
+        return tokenized
+
+    def decode(self, encoded_inputs):
+        # TODO: implement a decoding method for custodi!
+        pass
+
+    def predict(self, inputs):
+        encoded = self.encode(inputs)
+        pred = [np.sum(v) + self.intercept for v in encoded]
+        return pred
+
+    def plot_fit(self, x, y, show=True, **plot_kwargs):
+        ypred = self.predict(x)
+        utils._plot_fit(y, ypred, show, **plot_kwargs)
+
+    def plot_encoding(self, x, y=None, show=True, **plot_kwargs):
+        xencoded = self.encode(x)
+        pca = PCA(n_components=2)
+        xencoded = pca.fit_transform(xencoded)
+        plt.figure()
+        plt.plot(xencoded[0], xencoded[1], c=y, **plot_kwargs)
+        plt.xlabel("PCA1")
+        plt.ylabel("PCA2")
+        plt.title("Costodi Encoding")
+        if show:
+            plt.show()
 
 # class OldModel:
 #     '''Wrapper around keras.model to allow some more utilities (mainly for autoencoders)'''
