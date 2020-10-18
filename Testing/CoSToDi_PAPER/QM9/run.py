@@ -1,4 +1,4 @@
-import sys; sys.path.append('/home/shachar/Documents')
+import sys; sys.path.append('/home/azureuser')
 import numpy as np
 import os
 from copy import copy 
@@ -115,23 +115,11 @@ def data_from_idxs(data, idxs, t):
     else:
         raise ValueError(f'unrecognized data type {t}, can be labels or inputs')
 
-def flatten(l):
-    seed = copy(l)
-    while True:
-        new = []
-        for s in seed:
-            if type(s) is list:
-                for x in s:
-                    new.append(x)
-            else:
-                new.append(s)
-        seed = copy(new)
-        if all([not type(s) is list for s in seed]):
-            break
-    return seed
 
 def KRR_model(train_inputs, train_labels, model_alpha=0.01, kernel='rbf'):
     model = KernalRidge(model_alpha, kernel=kernel)
+    if len(train_inputs[0].shape) > 1:
+        train_inputs = [flatten(s) for s in train_inputs]
     model.train(train_inputs, train_labels)
     return model
 
@@ -159,6 +147,9 @@ def RNN_model(train_inputs, train_labels, dropout_rate=0, lr=0.01, epochs=100):
     input_shape = np.array(train_inputs[0]).shape
     _model = tf.keras.models.Sequential()
     _model.add(tf.keras.layers.Input(input_shape))
+    # fixing input shapes for some tokenizations   
+    if len(input_shape) < 2:
+        _model.add(tf.keras.layers.Reshape(input_shape + (1, )))   
     _model.add(tf.keras.layers.LSTM(50, activation='tanh'))
     _model.add(tf.keras.layers.Dropout(dropout_rate))
     _model.add(tf.keras.layers.Dense(50, activation='tanh'))
@@ -244,10 +235,10 @@ def get_cms():
     qm9 = qm9.set_index('gdb entry')
 
     # reading cm dataset
-    cmdf = pd.read_csv('./cm_data.csv')
+    cmdf = pd.read_csv('/mnt/katarzyna1/custodi_paper/red_cm.csv')
     cmdf = cmdf.set_index('gdb entry')
     # appending cm column to qm9
-    qm9  = qm9.append(cmdf)
+    qm9  = qm9.join(cmdf)
     
     # pulling cms for qm9
     cms = qm9['coulomb matrix'].values
@@ -255,9 +246,10 @@ def get_cms():
     max_size = max(qm9['# of atoms'].values)
     # parsing to np.array
     for i, m in enumerate(cms):
-        x = np.zeros(max_size, max_size)
+        x = np.zeros((max_size, max_size))
         m = np.array([np.array([np.float(v) for v in l.split('\t')]) for l in m.split(';')])
         x[:m.shape[0], :m.shape[1]] = m
+        x = x.astype(np.float32)
         cms[i] = x
     return cms
 
@@ -402,7 +394,8 @@ def run_calc(sample_idxs, train_idxs, val_idxs, test_idxs, label, results_df, no
 
 def main():
     repeat = 1
-    train_sizes = [0.001, 0.005, 0.01, 0.05, 0.1, 0.9]
+    train_sizes = [0.001, 0.005, 0.01, 0.05, 0.1]
+    # TODO: run test with 90% train set size - don't run together because of RAM issues.
     val_size = 0.1
     # train_sizes = [0.1]
     normalization_methods = [None, 'unit_scale', 'z_score']
@@ -414,8 +407,8 @@ def main():
                                 [{'tokenization_method': ['cm']}],
                                 [{'tokenization_method': ['random']}]]
     train_kw_dicts = [{'model': ['KRR'], 'model_alpha': [0.01, 0.05, 0.1], 'kernel': ['laplacian', 'rbf']},
-                        {'model': ['NN'], 'lr': [0.001, 0.005, 0.01], 'dropout_rate': [0, 0.1, 0.2]},
-                        {'model': ['RNN'], 'lr': [0.001, 0.005, 0.01], 'dropout_rate': [0, 0.1, 0.2]}]
+                        {'model': ['NN'], 'lr': [0.001, 0.005, 0.01], 'dropout_rate': [0, 0.01, 0.1]},
+                        {'model': ['RNN'], 'lr': [0.001, 0.005, 0.01], 'dropout_rate': [0, 0.01, 0.1]}]
 
     results_df = pd.DataFrame()
     for itr in range(repeat):
@@ -430,40 +423,10 @@ def main():
                 results_df = run_calc(None, train_idxs, val_idxs, test_idxs, label, results_df, normalization_method, tokenization_kw_dicts, train_kw_dicts)
 
 def main1():
-    sample_size = 2000
-    sample_idxs = select_idxs(111375 - 3, sample_size)
-    data = data_prep('isotropic polarizability [Bohr ** 3]', sample_idxs, 'one_hot', range(sample_size), normalization_method='z_score')
-    input_shape = np.array(data.vectorized_inputs[0]).shape
-
-    def build_model():
-        _model = tf.keras.models.Sequential()
-        _model.add(tf.keras.layers.Input(input_shape))
-        # _model.add(tf.keras.layers.Dense(input_shape[-1], activation='linear'))
-        _model.add(tf.keras.layers.LSTM(50, activation='tanh'))
-        # _model.add(tf.keras.layers.Flatten())
-        _model.add(tf.keras.layers.Dense(50, activation='tanh'))
-        # _model.add(tf.keras.layers.Dense(1, activation='tanh'))
-        _model.add(tf.keras.layers.Dense(1, activation='linear'))
-        _model.build()
-        print(_model.summary())
-        return KerasNN(_model, tf.keras.optimizers.Adam(lr=0.001), tf.keras.losses.MSE)
-
-    train_ins = np.array(data.vectorized_inputs)
-    random_ins = np.random.rand(len(train_ins), *input_shape)
-    train_labels = np.array(data.vectorized_labels)
-
-    model = build_model()
-    model.train(train_ins, train_labels, epochs=10, verbose=1)
-    pred = model.predict(train_ins)
-    descps = calc_descps(pred, train_labels)
-    utils._plot_fit(train_labels, pred, show=False)
-
-    model = build_model()
-    model.train(random_ins, train_labels, epochs=10, verbose=1)
-    pred = model.predict(random_ins)
-    descps.update(calc_descps(pred, train_labels, prefix='rand_'))
-    print('\n'.join([k + ": " + str(round(v, 4)) for k, v in descps.items()]))
-    utils._plot_fit(train_labels, pred)
+    print('data prep')
+    data = data_prep('rotational constant A [1.0]', None, 'word', [])
+    print('run ml')
+    get_trained_model(data.vectorized_inputs, data.vectorized_labels, 'RNN')
 
 
 

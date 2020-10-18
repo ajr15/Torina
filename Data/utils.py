@@ -79,13 +79,13 @@ def flatten(l):
     while True:
         new = []
         for s in seed:
-            if type(s) is list:
+            if hasattr(s, '__iter__') and not type(s) is str:
                 for x in s:
                     new.append(x)
             else:
                 new.append(s)
         seed = copy(new)
-        if all([not type(s) is list for s in seed]):
+        if all([not hasattr(s, '__iter__') or type(s) is str for s in seed]):
             break
     return seed
 
