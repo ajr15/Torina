@@ -1,4 +1,4 @@
-import sys; sys.path.append('/home/azureuser')
+import sys; sys.path.append('/home/shaharpit')
 import numpy as np
 import os
 from copy import copy 
@@ -6,7 +6,7 @@ import warnings; warnings.simplefilter(action = 'ignore', category=FutureWarning
 import tensorflow as tf
 import pandas as pd
 import matplotlib.pyplot as plt
-# import matplotlib; matplotlib.use('Agg')
+import matplotlib; matplotlib.use('Agg')
 import pandas as pd
 
 from Torina.Data.Objects import SMILES
@@ -17,11 +17,6 @@ from Torina.Model.utils import KerasArchitectures
 from Torina.Model.Objects import *
 from Torina.Molecule.Base import BaseMol
 from Torina.Molecule.utils import calculate_ecfp4
-
-# set runner number
-# labels = ['rotational constant A [1.0]','rotational constant B [1.0]','rotational constant C [1.0]','dipole moment [Debye]','isotropic polarizability [Bohr ** 3]','homo [Hartree]','lumo [Hartree]','gap [Hartree]','electronic spatial extent [Bohr ** 2]','zpve [Hartree]','energy U0 [Hartree]','energy U [Hartree]','enthalpy H [Hartree]','free energy G [Hartree]','heat capacity Cv [1.0]']
-# label = str(sys.argv[1])
-# runner_id = str(sys.argv[2])
 
 # =======================
 #      Utils Funcs
@@ -124,7 +119,7 @@ def KRR_model(train_inputs, train_labels, model_alpha=0.01, kernel='rbf'):
     return model
 
 def NN_model(train_inputs, train_labels, lr=0.001, dropout_rate=3, epochs=250):
-    input_shpae = train_inputs[0].shape
+    input_shape = train_inputs[0].shape
     input_size = np.prod(train_inputs[0].shape)
     model = tf.keras.models.Sequential()
     model.add(tf.keras.layers.Input(input_shape))
@@ -139,7 +134,7 @@ def NN_model(train_inputs, train_labels, lr=0.001, dropout_rate=3, epochs=250):
     return model
 
 def custodi_model(train_inputs, train_labels, model_degree=2, model_alpha=0.05, max_iter=10000):
-    model = custodi(model_degree, model_alpha, max_iter)
+    model = CuSToDi(model_degree, model_alpha, max_iter)
     model.train(train_inputs, train_labels)
     return model
 
@@ -228,14 +223,14 @@ def word_tokenize(data, train_inputs, train_labels):
 
 def get_cms():
     # readig original dataset
-    qm9 = pd.read_csv('./database.csv')
+    qm9 = pd.read_csv('/home/shaharpit/Torina/Testing/CoSToDi_PAPER/QM9/database.csv')
     qm9 = qm9[qm9['SMILES'] != 'C[C@H](C=C=C(O)=O)C[NH3]']
     qm9 = qm9[qm9['SMILES'] != 'C[C@@H]([NH3])c1noc(=O)n1']
     qm9 = qm9[qm9['SMILES'] != 'NC[C@H]([NH3])c1nnnn1']
     qm9 = qm9.set_index('gdb entry')
 
     # reading cm dataset
-    cmdf = pd.read_csv('/mnt/katarzyna1/custodi_paper/red_cm.csv')
+    cmdf = pd.read_csv('/home/shaharpit/Torina/Testing/CoSToDi_PAPER/QM9/red_cm.csv')
     cmdf = cmdf.set_index('gdb entry')
     # appending cm column to qm9
     qm9  = qm9.join(cmdf)
@@ -258,9 +253,14 @@ def cm_tokenize(data, train_inputs, train_labels):
     data.vectorized_inputs = cms
     return data
 
+def none_tokenize(data, train_inputs, train_labels):
+    data.vectorized_inputs = data.inputs
+    return data
+
+
 def tokenize_data(data, train_inputs, train_labels, tokenization_method='word', **kwargs):
     tokenization_methods_dict = {'custodi': custodi_tokenize, 'ECFP4': ECFP4_tokenize, 'word': word_tokenize, 'one_hot': one_hot_tokenize, 'aug_custodi': aug_custodi_tokenize,
-                                    'random': random_tokenize, 'None': lambda x: x, 'cm': cm_tokenize}
+                                    'random': random_tokenize, 'None': none_tokenize, 'cm': cm_tokenize}
     if not tokenization_method in tokenization_methods_dict.keys():
         raise ValueError(f"Unrecognized tokenization method {tokenization_method}, allowed methods are {', '.join(tokenization_methods_dict.keys())}")
     data = tokenization_methods_dict[tokenization_method] (data, train_inputs, train_labels, **kwargs)
@@ -270,7 +270,7 @@ def predict(data, idxs, model):
     inputs = np.array(data_from_idxs(data, idxs, 'inputs'))
     if isinstance(model, KernalRidge):
         if len(inputs[0].shape) > 1:
-            inputs = np.array([flatten(x) for x in inputs])
+            inputs = [flatten(x) for x in inputs]
     return model.predict(inputs)
 
 # =======================
@@ -278,7 +278,7 @@ def predict(data, idxs, model):
 # =======================
 
 def data_prep(label, sample_idxs, tokenization_method, train_idxs, normalization_method='z_score', **tokenization_kwargs):
-    df = pd.read_csv('./database.csv')
+    df = pd.read_csv('/home/shaharpit/Torina/Testing/CoSToDi_PAPER/QM9/database.csv')
     
     # removing non readable molecules (cause ECFP4 problems)
     df = df[df['SMILES'] != 'C[C@H](C=C=C(O)=O)C[NH3]']
@@ -298,21 +298,21 @@ def data_prep(label, sample_idxs, tokenization_method, train_idxs, normalization
 
 def run_fit(data, model, train_idxs, val_idxs, test_idxs, image_path, prefix, **train_kwargs):
     model = get_trained_model(data_from_idxs(data, train_idxs, 'inputs'), data_from_idxs(data, train_idxs, 'labels'), model, **train_kwargs)
-    train_pred = model.predict(np.array(data_from_idxs(data, train_idxs, 'inputs')))
-    test_pred = model.predict(np.array(data_from_idxs(data, test_idxs, 'inputs')))
-    val_pred = model.predict(np.array(data_from_idxs(data, val_idxs, 'inputs')))
+    train_pred = predict(data, train_idxs, model)
+    test_pred = predict(data, test_idxs, model)
+    val_pred = predict(data, val_idxs, model)
     print("calculating descriptors...")
     descrps = calc_descps(train_pred, data_from_idxs(data, train_idxs, 'labels'), 'train_', data._label_norm_params)
     descrps.update(calc_descps(test_pred, data_from_idxs(data, test_idxs, 'labels'), 'test_', data._label_norm_params))
     descrps.update(calc_descps(val_pred, data_from_idxs(data, val_idxs, 'labels'), 'val_', data._label_norm_params))
-    model.plot_fit(data_from_idxs(data, train_idxs, 'inputs'), data_from_idxs(data, train_idxs, 'labels'), show=False, alpha=0.2) # taining set
-    plt.gcf()
-    plt.savefig(os.path.join(image_path, prefix + '_train.png'))
-    plt.close()
-    model.plot_fit(data_from_idxs(data, test_idxs, 'inputs'), data_from_idxs(data, test_idxs, 'labels'), show=False, alpha=0.2) # testing set
-    plt.gcf()
-    plt.savefig(os.path.join(image_path, prefix + '_test.png'))
-    plt.close()
+    #model.plot_fit(data_from_idxs(data, train_idxs, 'inputs'), data_from_idxs(data, train_idxs, 'labels'), show=False, alpha=0.2) # taining set
+    #plt.gcf()
+    #plt.savefig(os.path.join(image_path, prefix + '_train.png'))
+    #plt.close()
+    #model.plot_fit(data_from_idxs(data, test_idxs, 'inputs'), data_from_idxs(data, test_idxs, 'labels'), show=False, alpha=0.2) # testing set
+    #plt.gcf()
+    #plt.savefig(os.path.join(image_path, prefix + '_test.png'))
+    #plt.close()
     return descrps
 
 def custodi_run_fit(data, model, train_idxs, test_idxs, image_path, prefix, **train_kwargs):
@@ -322,22 +322,22 @@ def custodi_run_fit(data, model, train_idxs, test_idxs, image_path, prefix, **tr
     print("calculating descriptors...")
     descrps = calc_descps(train_pred, data_from_idxs(data, train_idxs, 'labels'), 'train_', data._label_norm_params)
     descrps.update(calc_descps(test_pred, data_from_idxs(data, test_idxs, 'labels'), 'test_', data._label_norm_params))
-    model.plot_fit([data.inputs[i] for i in train_idxs], data_from_idxs(data, train_idxs, 'labels'), show=False, alpha=0.2) # taining set
-    plt.gcf()
-    plt.savefig(os.path.join(image_path, prefix + '_train.png'))
-    plt.close()
-    model.plot_fit([data.inputs[i] for i in test_idxs], data_from_idxs(data, test_idxs, 'labels'), show=False, alpha=0.2) # testing set
-    plt.gcf()
-    plt.savefig(os.path.join(image_path, prefix + '_test.png'))
-    plt.close()
+    #model.plot_fit([data.inputs[i] for i in train_idxs], data_from_idxs(data, train_idxs, 'labels'), show=False, alpha=0.2) # taining set
+    #plt.gcf()
+    #plt.savefig(os.path.join(image_path, prefix + '_train.png'))
+    #plt.close()
+    #model.plot_fit([data.inputs[i] for i in test_idxs], data_from_idxs(data, test_idxs, 'labels'), show=False, alpha=0.2) # testing set
+    #plt.gcf()
+    #plt.savefig(os.path.join(image_path, prefix + '_test.png'))
+    #plt.close()
     return descrps
 
-def run_calc(sample_idxs, train_idxs, val_idxs, test_idxs, label, results_df, normalization_method, tokenization_kw_dicts, train_kw_dicts):
+def run_calc(sample_idxs, train_idxs, val_idxs, test_idxs, label, results_df, normalization_methods, tokenization_kw_dicts, train_kw_dicts, runner_id, train_size, recover_from):
     tot_dicts = []
     for l in [l for l in cartesian_prod(tokenization_kw_dicts, train_kw_dicts)]:
         dct = {}
         for d in l:
-            dct.update(d)
+            dct.update(d) if not type(d) == list else dct.update(d[0])
         tot_dicts.append(dct)
     
     tokenization_keys = set()
@@ -346,6 +346,7 @@ def run_calc(sample_idxs, train_idxs, val_idxs, test_idxs, label, results_df, no
             if not k == 'tokenization_method':
                 tokenization_keys.add(k)
     
+    train_kw_dicts = [d[0] if type(d) is list else d for d in train_kw_dicts]
     train_keys = set()
     for d in train_kw_dicts:
         for k in d.keys():
@@ -358,77 +359,109 @@ def run_calc(sample_idxs, train_idxs, val_idxs, test_idxs, label, results_df, no
             if len(v) > 1 and not k == 'tokenization_method' and not k == 'model':
                 changing_kwargs.append(k)
 
-    base_image_dir = './plots' + runner_id
-    if not os.path.isdir(base_image_dir):
-        os.mkdir(base_image_dir)
-
+    base_image_dir = '/home/shaharpit/Torina/Testing/CoSToDi_PAPER/QM9/plots' + runner_id
+    #if not os.path.isdir(base_image_dir):
+    #    os.mkdir(base_image_dir)
+    
+    kw_dicts = [d for kw_dict in tot_dicts for d in kw_cartesian_prod(kw_dict)]
+    kw_dicts = []
     for kw_dict in tot_dicts:
         for d in kw_cartesian_prod(kw_dict):
-            print("Running calculation with:", 
-                " ".join([k + ": " + str(v)  + ',' for k, v in d.items() if k in changing_kwargs] + [f"tokenization method: {d['tokenization_method']}, model: {d['model']}"]))
-            
-            tokenization_kwds = dict([(k, d[k]) for k in d.keys() if k in tokenization_keys])
-            # correcting for custodi model case - no need for tokenization!
-            if d['model'] == 'Costodi':
-                d['tokenization_method'] = 'None'
-                tokenization_kwds = {}
-            train_kwds = dict([(k, d[k]) for k in d.keys() if k in train_keys])
-            data = data_prep(label, sample_idxs, d['tokenization_method'], train_idxs, normalization_method=normalization_method, **tokenization_kwds)
-            image_path = os.path.join(base_image_dir, '_'.join([f'label_{label}'] + [k + "_" + str(v) for k, v in d.items() if k in changing_kwargs]))
-            if not os.path.isdir(image_path):
-                os.mkdir(image_path)
-            image_prefix = 'model_{}_tokenization_method_{}_train_size_{}'.format(d['model'], d['tokenization_method'], len(train_idxs))
-            if d['model'] == 'custodi':
-                descrps = custodi_run_fit(data, d['model'], train_idxs, test_idxs, image_path, image_prefix, **train_kwds) 
-            else:
-                descrps = run_fit(data, d['model'], train_idxs, val_idxs, test_idxs, image_path, image_prefix, **train_kwds)
-            descrps['train_size'] = len(train_idxs)
-            descrps['test_size'] = len(test_idxs)
-            descrps['val_size'] = len(val_idxs)
-            descrps['label'] = label
-            descrps['norm_method'] = normalization_method
-            descrps.update(d)
-            results_df = results_df.append(descrps, ignore_index=True)
-            results_df.to_csv('./results' + runner_id + '.csv')
-    return results_df
+            for norm_method in normalization_methods:
+                d['norm_method'] = norm_method
+                kw_dicts.append(d)
+    if not recover_from == 0:
+        print("Recovers from idx = {}".format(recover_from))
+        kw_dicts = kw_dicts[recover_from:]
 
+    for d in kw_dicts:
+        print("Running calculation with:", 
+            " ".join([k + ": " + str(v)  + ',' for k, v in d.items() if k in changing_kwargs] + [f"tokenization method: {d['tokenization_method']}, model: {d['model']}, normalization: {d['norm_method']}"]))
+        
+        tokenization_kwds = dict([(k, d[k]) for k in d.keys() if k in tokenization_keys])
+        # correcting for custodi model case - no need for tokenization!
+        if d['model'] == 'Costodi':
+            d['tokenization_method'] = 'None'
+            tokenization_kwds = {}
+        train_kwds = dict([(k, d[k]) for k in d.keys() if k in train_keys])
+        data = data_prep(label, sample_idxs, d['tokenization_method'], train_idxs, normalization_method=d['norm_method'], **tokenization_kwds)
+        image_path = os.path.join(base_image_dir, '_'.join([f'label_{label}'] + [k + "_" + str(v) for k, v in d.items() if k in changing_kwargs]))
+        #if not os.path.isdir(image_path):
+        #    os.mkdir(image_path)
+        image_prefix = 'model_{}_tokenization_method_{}_train_size_{}'.format(d['model'], d['tokenization_method'], len(train_idxs))
+        #if d['model'] == 'custodi':
+        #    descrps = custodi_run_fit(data, d['model'], train_idxs, test_idxs, image_path, image_prefix, **train_kwds) 
+        #else:
+        descrps = run_fit(data, d['model'], train_idxs, val_idxs, test_idxs, image_path, image_prefix, **train_kwds)
+        descrps['train_size'] = len(train_idxs)
+        descrps['test_size'] = len(test_idxs)
+        descrps['val_size'] = len(val_idxs)
+        descrps['label'] = label
+        descrps['norm_method'] = d['norm_method']
+        descrps.update(d)
+        results_df = results_df.append(descrps, ignore_index=True)
+        name = "_".join(['./results/results', label, str(train_size), runner_id, '.csv']) if recover_from == 0 else "_".join(['./results/results', label, str(train_size), runner_id, '.csv'])
+        results_df.to_csv(name)
+    return results_df
+    
+def get_options_for_section(section, train_size):
+    import comp_params
+    if section.lower() == 'small': 
+        d = comp_params.nn_small
+        if train_size <= 0.01:
+            d['model_ds'].append(comp_params.krr_small['model_ds'])
+    elif section.lower() == 'medium':
+        d = comp_params.nn_medium
+    elif section.lower() == 'large':
+        d = comp_params.krr_large
+        if train_size > 0.01:
+            d['tokenization_ds'] = d['tokenization_ds'][2:] 
+    elif section.lower() == 'custodi':
+        d = comp_params.custodi
+    elif section.lower() == 'rnn':
+        d = comp_params.rnn
+    return d['model_ds'], d['tokenization_ds']
+                        
 def main():
-    repeat = 1
-    train_sizes = [0.001, 0.005, 0.01, 0.05, 0.1]
-    # TODO: run test with 90% train set size - don't run together because of RAM issues.
+    # set runner number
+    # labels = ['rotational constant A [1.0]','rotational constant B [1.0]','rotational constant C [1.0]','dipole moment [Debye]','isotropic polarizability [Bohr ** 3]','homo [Hartree]','lumo [Hartree]','gap [Hartree]','electronic spatial extent [Bohr ** 2]','zpve [Hartree]','energy U0 [Hartree]','energy U [Hartree]','enthalpy H [Hartree]','free energy G [Hartree]','heat capacity Cv [1.0]']
+    # train_sizes = [0.01, 0.1, 0.9]
+    
+    #tokenization_kw_dicts = [[{'tokenization_method': ['ECFP4']}],
+    #                        [{'tokenization_method': ['word']}],
+    #                        [{'tokenization_method': ['one_hot']}],
+    #                        [{'tokenization_method': ['custodi'], 'degree': [1, 2], 'alpha': [0.01, 0.05]}],
+    #                        [{'tokenization_method': ['aug_custodi'], 'degree': [1, 2], 'alpha': [0.01, 0.05]}],
+    #                        [{'tokenization_method': ['cm']}],
+    #                        [{'tokenization_method': ['random']}]]
+    #train_kw_dicts = [{'model': ['KRR'], 'model_alpha': [0.01, 0.1], 'kernel': ['rbf']},
+    #                    {'model': ['NN'], 'lr': [0.01, 0.1], 'dropout_rate': [0, 0.1]},
+    #                    {'model': ['RNN'], 'lr': [0.01, 0.1], 'dropout_rate': [0, 0.1]}]
+    
+    print(sys.argv)
+    label = sys.argv[1] # label for the calculation
+    train_set_size = float(sys.argv[2]) # train set size 
+    section = str(sys.argv[3]) # mem usage of the process
+    runner_id = str(sys.argv[4]) # runner id - to separate different repeats.
+    try:
+      recover_from = int(sys.argv[5]) # set idx of kewords dict to recover from (writes results to the same csv file)
+      if recover_from == -1:
+          print("Computation is done !!!")
+          sys.exit(0)
+    except Exception:
+      recover_from = 0
     val_size = 0.1
-    # train_sizes = [0.1]
-    normalization_methods = [None, 'unit_scale', 'z_score']
-    tokenization_kw_dicts = [[{'tokenization_method': ['ECFP4']}],
-                                [{'tokenization_method': ['word']}],
-                                [{'tokenization_method': ['one_hot']}],
-                                [{'tokenization_method': ['custodi'], 'degree': [1, 2], 'alpha': [0.01, 0.05]}],
-                                [{'tokenization_method': ['aug_custodi'], 'degree': [1, 2], 'alpha': [0.01, 0.05]}],
-                                [{'tokenization_method': ['cm']}],
-                                [{'tokenization_method': ['random']}]]
-    train_kw_dicts = [{'model': ['KRR'], 'model_alpha': [0.01, 0.05, 0.1], 'kernel': ['laplacian', 'rbf']},
-                        {'model': ['NN'], 'lr': [0.001, 0.005, 0.01], 'dropout_rate': [0, 0.01, 0.1]},
-                        {'model': ['RNN'], 'lr': [0.001, 0.005, 0.01], 'dropout_rate': [0, 0.01, 0.1]}]
+
+    train_kw_dicts, tokenization_kw_dicts = get_options_for_section(section, train_set_size)
+    normalization_methods = ['z_score']
 
     results_df = pd.DataFrame()
-    for itr in range(repeat):
-        print("running iteration number", itr + 1)
-        print(f"Running for {label}")
-        train_idxs = []
-        val_idxs = []
-        for train_size in train_sizes:
-            train_idxs, val_idxs, test_idxs = gen_train_val_test_idxs(train_size, val_size, 111375 - 3, train_idxs, val_idxs)
-            for normalization_method in normalization_methods:
-                print(f"Running with train size {train_size} and {normalization_method} normalization")    
-                results_df = run_calc(None, train_idxs, val_idxs, test_idxs, label, results_df, normalization_method, tokenization_kw_dicts, train_kw_dicts)
 
-def main1():
-    print('data prep')
-    data = data_prep('rotational constant A [1.0]', None, 'word', [])
-    print('run ml')
-    get_trained_model(data.vectorized_inputs, data.vectorized_labels, 'RNN')
-
-
+    print(f"Running for {label}")
+    
+    train_idxs, val_idxs, test_idxs = gen_train_val_test_idxs(train_set_size, val_size, 111375 - 3, [], [])
+    results_df = run_calc(None, train_idxs, val_idxs, test_idxs, label, results_df, normalization_methods, tokenization_kw_dicts, train_kw_dicts, runner_id, train_set_size, recover_from)
+    print("Computation is done !!!")
 
 if __name__ == '__main__':
-    main1()
+    main()
