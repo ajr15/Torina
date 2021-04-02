@@ -1,10 +1,9 @@
 import openbabel as ob
 from rdkit.Chem import AllChem
 from rdkit import Chem
-from ..Data.Base import Specie
 from .utils import *
 
-class BaseMol (Specie):
+class BaseMol:
 
     def __init__(self, atoms=None, coords=None, bondmap=None):
         self.atoms = atoms
@@ -28,8 +27,7 @@ class BaseMol (Specie):
             conv.SetInFormat("smi")
             conv.ReadString(mol, string)
             self.from_openbabel_mol(mol)
-
-    
+   
     def to_str(self):
         '''Method to write Mols to strings, strings could be SMILES, SMILES vectors... Mainly used for database generation.
         Must be implemented for every subclass'''
