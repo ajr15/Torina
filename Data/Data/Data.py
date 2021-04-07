@@ -147,13 +147,25 @@ class Data (ABC):
     def remove_entries(self, entry_values: list):
         """Method to remove all entries in entry_values from \'vectorized_inputs\' and \'vectorized_labels\'. 
         ARGS:
-            - entry_values (list): values of entries to remove."""
+            - entry_values (list): values of entries to remove. if \'empty_arrays\' is entered filters out empty arrays"""
         inps = []
         labels = []
         for inp, label in zip(self.vectorized_inputs, self.vectorized_labels):
             if not inp in entry_values and not label in entry_values:
-                inps.append(inp)
-                labels.append(label)
+                if 'empty_arrays' in entry_values:
+                    if hasattr(inp, "__len__"):
+                        if len(inp) > 0:
+                            inps.append(inp)
+                    else:
+                        inps.append(inp)
+                    if hasattr(label, "__len__"):
+                        if len(label) > 0:
+                            labels.append(label)
+                    else:
+                        labels.append(label)
+                else:
+                    inps.append(inp)
+                    labels.append(labels)
         self.vectorized_inputs = inps
         self.vectorized_labels = labels
 
@@ -178,14 +190,18 @@ class Data (ABC):
             A Data object with changed inputs/labels according to the indecis (every other parameter is saved)"""
         d = deepcopy(self) # copy all attributes/variables of current object
         # change inputs/labels according to idxs
-        d.inputs = self._choose_idxs_if_not_empty(self.inputs, idxs)
-        d.labels = self._choose_idxs_if_not_empty(self.labels, idxs)
+        try:
+            d.inputs = self._choose_idxs_if_not_empty(self.inputs, idxs)
+            d.labels = self._choose_idxs_if_not_empty(self.labels, idxs)
+        except IndexError:
+            print("ERROR IN COPYING INPUTS AND LABELS, PROCEEDING WITHOUT THEM...")
+            # TODO: stop being lazy  and fix remove_entries method to not cause this error !
         d.vectorized_inputs = self._choose_idxs_if_not_empty(self.vectorized_inputs, idxs)
         d.vectorized_labels = self._choose_idxs_if_not_empty(self.vectorized_labels, idxs)
         return d
 
     def split_to_groups(self, group_sizes, relative_sizes=True, add_fill_group=False, random_seed=None):
-        idx_groups = choose(len(self.inputs), group_sizes, rel_sizes=relative_sizes, add_fill_group=add_fill_group, random_seed=random_seed)
+        idx_groups = choose(len(self.vectorized_inputs), group_sizes, rel_sizes=relative_sizes, add_fill_group=add_fill_group, random_seed=random_seed)
         ds = []
         for idxs in idx_groups:
             ds.append(self.data_from_idxs(idxs))

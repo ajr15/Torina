@@ -10,9 +10,6 @@ def _get_changing_kwds(kw_dict):
             l.append(k)
     return l
 
-def _get_verbose_str(kw_dict, changing_kwds):
-    return 
-
 def grid_estimation(model_type, 
                     train_inputs: list, 
                     train_labels: list,
