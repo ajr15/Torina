@@ -10,7 +10,7 @@ conda install -y -n Torina -c conda-forge scikit-learn
 conda activate Torina
 pip install tensorflow
 ```
-##OPTIONAL PACKAGES
+## OPTIONAL PACKAGES
 ```
 conda install -y -n Torina dask
 conda install -y -n Torina -c conda-forge deepchem
