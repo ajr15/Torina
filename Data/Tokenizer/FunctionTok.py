@@ -11,7 +11,11 @@ class FunctionTok (Tokenizer):
         self.kwargs = kwargs
 
     def tokenize_vector(self, vec):
-        return self.func(vec, **self.kwargs)
+        try:
+            return self.func(vec, **self.kwargs)
+        except Exception:
+            print("Failed tokenizing vector, returning empty array")
+            return []
 
     def translate_vector(self, vec):
         raise RuntimeError("Function tokenization does not support translation")

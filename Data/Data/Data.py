@@ -69,6 +69,10 @@ class Data (ABC):
     # ====================================
     #       Data preperation methods
     # ====================================
+    
+    def vectorized_attributes_to_nparrays(self):
+        self.vectorized_inputs = np.array([np.array(x) for x in self.vectorized_inputs])
+        self.vectorized_labels = np.array([np.array(x) for x in self.vectorized_labels])
 
     # padding
     
@@ -178,7 +182,7 @@ class Data (ABC):
         """take idxs from a list if the list is not None"""
         # helper function to select data from idxs
         if vecs is not None:
-            return [vecs[i] for i in idxs]
+            return np.array([vecs[i] for i in idxs])
         else:
             return None
 

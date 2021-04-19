@@ -1,4 +1,6 @@
 from .Tokenizer import Tokenizer
+from ..commons import flatten
+import numpy as np
 
 class OneHot (Tokenizer):
     """Abstract class to handel general input tokenizations"""
@@ -13,11 +15,13 @@ class OneHot (Tokenizer):
             char_set.add(char)
         self.word_idxs_dict = dict([(char, i) for i, char in enumerate(list(char_set))])
 
-    def tokinize_vector(self, vec):
+    def tokenize_vector(self, vec):
         """Method to tokenize a string"""
         tok = []
         for s in vec:
-            tok.append([1 for k in self.word_idxs_dict.keys() if k == s else 0])
+            v = [0 for _ in range(len(self.word_idxs_dict))]
+            v[self.word_idxs_dict[s]] = 1
+            tok.append(v)
         return tok
 
     def translate_vector(self, vec):
