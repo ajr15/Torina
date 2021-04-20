@@ -10,10 +10,11 @@ class OneHot (Tokenizer):
 
     def set_word_tokenization_dict(self, vecs):
         '''Method to generate standard word tokenization dictionary'''
-        char_set = set()
+        d = {}
         for char in flatten(vecs):
-            char_set.add(char)
-        self.word_idxs_dict = dict([(char, i) for i, char in enumerate(list(char_set))])
+            if char not in d.keys():
+                d[char] = len(d.keys())
+        self.word_idxs_dict = d
 
     def tokenize_vector(self, vec):
         """Method to tokenize a string"""
