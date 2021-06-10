@@ -44,15 +44,31 @@ class Custodi (Tokenizer):
             t = 0
             for i in range(self.degree):
                 try:
+                    if not len(v[idx:(idx + i + 1)]) == i + 1:
+                        break
                     t += self.dictionary[''.join(v[idx:(idx + i + 1)])]
                 except KeyError:
                     pass
             tokenized.append(t)
         return tokenized
-    
+
     def translate_vector(self, vec):
-        # TODO: implement!
-        raise NotImplementedError
+        chars = [s for s in self.dictionary.keys() if len(s) == 1]
+        recovered_string = []
+        for x in reversed(vec):
+            char = ''
+            min_dif = 1e6
+            reverse_recovered_string = [t for t in reversed(recovered_string)]
+            for c in chars:
+                trail_s = [c] + reverse_recovered_string[:(self.degree + 1)]
+                tok_val = self.tokenize_vector(self.dictionary, self.degree, trail_s)[0]
+                diff = abs(tok_val - x)
+                if diff < min_dif:
+                    char = c
+                    min_dif = diff
+            recovered_string.append(char)
+        return "".join([s for s in reversed(recovered_string)])
+
 
     def train(self, inputs, labels, **train_kwrags):
         """Train a CUSTODI model on inputs and labels to get the tokenization dictionary.
