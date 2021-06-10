@@ -1,6 +1,5 @@
 # Torina
 An AI app for chemistry
-<<<<<<< HEAD
 =======
 
 To create a conda environment with all of the dependencies. Write the followig commands
