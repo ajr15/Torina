@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import tensorflow as tf
 
 class KerasArchitectures:
@@ -124,7 +123,6 @@ class KerasArchitectures:
         
         def __copy__(self):
             return KerasArchitectures.AutoEncoders(tf.keras.models.clone_model(self.encoder), tf.keras.models.clone_model(self.decoder), copy(self.variational))
-=======
 import pandas as pd
 from time import time
 from .commons import kw_cartesian_prod
@@ -245,4 +243,3 @@ def grid_estimation(model_type,
             if write_to is not None:
                 res.to_csv(write_to)
     return res
->>>>>>> dev
