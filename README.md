@@ -16,4 +16,3 @@ pip install tensorflow
 conda install -y -n Torina dask
 conda install -y -n Torina -c conda-forge deepchem
 ```
->>>>>>> dev
