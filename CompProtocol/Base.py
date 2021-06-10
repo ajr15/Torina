@@ -1,7 +1,11 @@
 from abc import ABC, abstractclassmethod, abstractproperty
 import pandas as pd
+<<<<<<< HEAD
 import sys; sys.path.append('../')
 from Molecule.Base import Specie
+=======
+from ..Molecule.Base import Specie
+>>>>>>> dev
 from multiprocessing import TimeoutError, Pool
 from multiprocessing.pool import ThreadPool
 import signal

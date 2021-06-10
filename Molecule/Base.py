@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 from pymatgen.core.structure import Structure, Molecule, Site
 from pymatgen.analysis.graphs import StructureGraph
 from pymatgen.analysis.local_env import JmolNN as env_strategy
@@ -135,6 +136,14 @@ def check_smiles(string):
 # =========================================
 
 class BaseMol (Specie):
+=======
+import openbabel as ob
+from rdkit.Chem import AllChem
+from rdkit import Chem
+from .utils import *
+
+class BaseMol:
+>>>>>>> dev
 
     def __init__(self, atoms=None, coords=None, bondmap=None):
         self.atoms = atoms
@@ -158,8 +167,12 @@ class BaseMol (Specie):
             conv.SetInFormat("smi")
             conv.ReadString(mol, string)
             self.from_openbabel_mol(mol)
+<<<<<<< HEAD
 
     
+=======
+   
+>>>>>>> dev
     def to_str(self):
         '''Method to write Mols to strings, strings could be SMILES, SMILES vectors... Mainly used for database generation.
         Must be implemented for every subclass'''

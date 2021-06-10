@@ -1,6 +1,10 @@
 from .Base import CompProtocol
+<<<<<<< HEAD
 import sys; sys.path.append('../')
 from Molecule.Base import to_rdkit_Mol
+=======
+from ..Molecule.Base import to_rdkit_Mol
+>>>>>>> dev
 from rdkit import Chem
 
 class RDKitPropCalc (CompProtocol):

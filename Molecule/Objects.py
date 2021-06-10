@@ -209,7 +209,17 @@ class SubsMol (BaseMol):
         if convert_to_subs_vec:
             subs_vec = self._vec_to_subs_vec(vec)
         for sub in subs_vec:
+<<<<<<< HEAD
             sub = Chem.RWMol(Chem.MolFromSmiles(sub))
+=======
+            if sub == "0":
+                continue
+            try:
+                sub = Chem.RWMol(Chem.MolFromSmiles(sub, sanitize=False))
+            except:
+                print("Error occured while converting %s susbs in %s" % (sub, subs_vec))
+                raise
+>>>>>>> dev
             # finding binding positions on sub
             sub_binding_pos = []
             dummy_atom_count = 0
@@ -248,6 +258,10 @@ class SubsMol (BaseMol):
             # tries to convert rdkit mol to Basic mol with standard method, otherwise uses SMILES to bridge the formats
             self.from_rdkit_mol(core, kekulize=True)
         except ValueError:
+<<<<<<< HEAD
+=======
+            print(Chem.MolToSmiles(core))
+>>>>>>> dev
             self.from_str(Chem.MolToSmiles(core))
 
     def estimate_geometry(self):
